@@ -10,6 +10,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Google Classroom API scopes
 const SCOPES = [
@@ -30,7 +32,7 @@ class GoogleClassroomMCPServer {
     this.server = new Server(
       {
         name: 'google-classroom-mcp-server',
-        version: '0.1.0',
+        version: '1.0.0',
       },
       {
         capabilities: {
@@ -45,24 +47,48 @@ class GoogleClassroomMCPServer {
 
   private async setupAuth() {
     try {
-      // Initialize OAuth2 client
-      this.auth = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI || 'urn:ietf:wg:oauth:2.0:oob'
-      );
+      // Try environment variables first (new method)
+      if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN) {
+        this.auth = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET,
+          process.env.GOOGLE_REDIRECT_URI || 'urn:ietf:wg:oauth:2.0:oob'
+        );
 
-      // Check if we have stored credentials
-      if (process.env.GOOGLE_REFRESH_TOKEN) {
         this.auth.setCredentials({
           refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
         });
         
-        // Initialize Classroom API
         this.classroom = google.classroom({ version: 'v1', auth: this.auth });
-      } else {
-        console.error('No refresh token found. Please run authentication setup first.');
+        console.error('✅ Authenticated via environment variables');
+        return;
       }
+
+      // Fallback to legacy tokens.json file (backward compatibility)
+      const tokensPath = path.join(process.cwd(), 'tokens.json');
+      const credentialsPath = path.join(process.cwd(), 'credentials.json');
+      
+      if (fs.existsSync(tokensPath) && fs.existsSync(credentialsPath)) {
+        const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        const tokens = JSON.parse(fs.readFileSync(tokensPath, 'utf8'));
+        
+        const { client_id, client_secret, redirect_uris } = credentials.web || credentials.installed;
+        
+        this.auth = new google.auth.OAuth2(
+          client_id,
+          client_secret,
+          redirect_uris[0] || 'urn:ietf:wg:oauth:2.0:oob'
+        );
+
+        this.auth.setCredentials(tokens);
+        this.classroom = google.classroom({ version: 'v1', auth: this.auth });
+        console.error('✅ Authenticated via tokens.json (legacy mode)');
+        return;
+      }
+
+      console.error('❌ No authentication found. Please run: npm run setup-auth');
+      console.error('   Or use legacy: node index.js auth');
+      
     } catch (error) {
       console.error('Authentication setup failed:', error);
     }
@@ -72,9 +98,53 @@ class GoogleClassroomMCPServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
+          // Legacy tool names for backward compatibility
+          {
+            name: 'courses',
+            description: 'Get a list of all your Google Classroom courses (legacy)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                courseStates: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Filter by course states (ACTIVE, ARCHIVED, PROVISIONED, DECLINED, SUSPENDED)',
+                },
+              },
+            },
+          },
+          {
+            name: 'course-details',
+            description: 'Get detailed information about a specific course including announcements (legacy)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                courseId: {
+                  type: 'string',
+                  description: 'The ID of the course to retrieve',
+                },
+              },
+              required: ['courseId'],
+            },
+          },
+          {
+            name: 'assignments',
+            description: 'Get assignments and coursework for a specific course (legacy)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                courseId: {
+                  type: 'string',
+                  description: 'The ID of the course',
+                },
+              },
+              required: ['courseId'],
+            },
+          },
+          // New enhanced tools
           {
             name: 'list_courses',
-            description: 'List all courses the user has access to',
+            description: 'List all courses with advanced filtering options',
             inputSchema: {
               type: 'object',
               properties: {
@@ -202,7 +272,7 @@ class GoogleClassroomMCPServer {
           },
           {
             name: 'create_coursework',
-            description: 'Create a new assignment in a course',
+            description: 'Create a new assignment in a course (requires teacher permissions)',
             inputSchema: {
               type: 'object',
               properties: {
@@ -247,18 +317,22 @@ class GoogleClassroomMCPServer {
       if (!this.classroom) {
         throw new McpError(
           ErrorCode.InternalError,
-          'Google Classroom API not initialized. Please check authentication.'
+          'Google Classroom API not initialized. Please run: npm run setup-auth'
         );
       }
 
       try {
         switch (request.params.name) {
+          // Legacy tool compatibility
+          case 'courses':
           case 'list_courses':
             return await this.listCourses(request.params.arguments || {});
           
+          case 'course-details':
           case 'get_course':
             return await this.getCourse(request.params.arguments as { courseId: string });
           
+          case 'assignments':
           case 'list_coursework':
             return await this.listCoursework(request.params.arguments as { courseId: string; courseWorkStates?: string[] });
           

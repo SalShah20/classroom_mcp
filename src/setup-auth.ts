@@ -15,27 +15,22 @@ const SCOPES = [
   'https://www.googleapis.com/auth/classroom.profile.emails',
 ];
 
-interface Credentials {
-  client_id: string;
-  client_secret: string;
-  redirect_uris: string[];
-}
-
 async function setupAuthentication() {
-  console.log('Google Classroom MCP Server Authentication Setup');
-  console.log('==============================================\n');
+  console.log('🎓 Google Classroom MCP Server Authentication Setup');
+  console.log('==================================================\n');
 
   // Check if credentials file exists
   const credentialsPath = path.join(process.cwd(), 'credentials.json');
   if (!fs.existsSync(credentialsPath)) {
     console.error('❌ credentials.json not found!');
-    console.log('\nTo set up authentication:');
+    console.log('\n📋 To set up authentication:');
     console.log('1. Go to https://console.cloud.google.com/');
     console.log('2. Create a new project or select an existing one');
     console.log('3. Enable the Google Classroom API');
     console.log('4. Go to "Credentials" and create an OAuth 2.0 Client ID');
-    console.log('5. Download the credentials and save as "credentials.json" in this directory');
-    console.log('6. Run this setup script again\n');
+    console.log('5. Choose "Desktop application" as the application type');
+    console.log('6. Download the credentials and save as "credentials.json" in this directory');
+    console.log('7. Run this setup script again\n');
     process.exit(1);
   }
 
@@ -47,6 +42,7 @@ async function setupAuthentication() {
   
   if (!client_id || !client_secret) {
     console.error('❌ Invalid credentials.json format');
+    console.error('Make sure you downloaded the correct OAuth 2.0 Client ID credentials');
     process.exit(1);
   }
 
@@ -89,8 +85,9 @@ async function setupAuthentication() {
       process.exit(1);
     }
 
-    // Save tokens to .env file
+    // Save tokens to .env file (new method)
     const envContent = `# Google Classroom MCP Server Environment Variables
+# Generated on ${new Date().toISOString()}
 GOOGLE_CLIENT_ID="${client_id}"
 GOOGLE_CLIENT_SECRET="${client_secret}"
 GOOGLE_REDIRECT_URI="${redirect_uris[0] || 'urn:ietf:wg:oauth:2.0:oob'}"
@@ -99,11 +96,26 @@ GOOGLE_REFRESH_TOKEN="${tokens.refresh_token}"
 
     fs.writeFileSync('.env', envContent);
     
+    // Also save to legacy tokens.json for backward compatibility
+    const tokensForLegacy = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      scope: tokens.scope,
+      token_type: tokens.token_type,
+      expiry_date: tokens.expiry_date
+    };
+    
+    fs.writeFileSync('tokens.json', JSON.stringify(tokensForLegacy, null, 2));
+    
     console.log('✅ Authentication successful!');
-    console.log('🔑 Tokens saved to .env file');
-    console.log('\nYou can now run the MCP server with:');
-    console.log('npm run build && node dist/index.js');
-    console.log('\nOr add it to your Claude Desktop configuration.');
+    console.log('🔑 Tokens saved to .env file (secure)');
+    console.log('🔄 Legacy tokens.json also created for backward compatibility');
+    console.log('\n🚀 You can now run the MCP server with:');
+    console.log('   npm run build && npm start');
+    console.log('\n📱 Or test it with:');
+    console.log('   npm test');
+    console.log('\n🔧 Add to Claude Desktop config:');
+    console.log('   See README.md for configuration instructions');
 
   } catch (error) {
     console.error('❌ Error getting tokens:', error);

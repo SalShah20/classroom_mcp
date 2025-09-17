@@ -1,7 +1,9 @@
 {
   "name": "google-classroom-mcp-server",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "An MCP (Model Context Protocol) server that provides access to Google Classroom data through Claude and other AI assistants that support the MCP protocol.",
   "type": "module",
+  "main": "dist/index.js",
   "bin": {
     "google-classroom-mcp-server": "./dist/index.js"
   },
@@ -10,8 +12,20 @@
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js",
     "setup-auth": "tsc && node dist/setup-auth.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "npm run build && node dist/index.js",
+    "auth": "npm run setup-auth"
   },
+  "keywords": [
+    "mcp",
+    "google-classroom", 
+    "model-context-protocol",
+    "claude",
+    "ai",
+    "education"
+  ],
+  "author": "Faizan",
+  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0",
     "googleapis": "^140.0.0",
@@ -20,5 +34,13 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/faizan45640/google-classroom-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/faizan45640/google-classroom-mcp-server/issues"
+  },
+  "homepage": "https://github.com/faizan45640/google-classroom-mcp-server#readme"
 }
