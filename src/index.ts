@@ -309,6 +309,22 @@ class GoogleClassroomMCPServer {
               required: ['courseId', 'title'],
             },
           },
+          {
+            name: 'get_upcoming_assignments',
+            description: 'Get upcoming assignments due within the next 30 days across all active courses',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'get_grades',
+            description: 'Get your grades across all active courses, showing assigned grade, max points, and submission state for each assignment',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
         ],
       };
     });
@@ -350,7 +366,13 @@ class GoogleClassroomMCPServer {
           
           case 'create_coursework':
             return await this.createCoursework(request.params.arguments as any);
-          
+
+          case 'get_upcoming_assignments':
+            return await this.getUpcomingAssignments();
+
+          case 'get_grades':
+            return await this.getGrades();
+
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
         }
@@ -505,6 +527,115 @@ class GoogleClassroomMCPServer {
         {
           type: 'text',
           text: JSON.stringify(response.data, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async getUpcomingAssignments() {
+    const now = Date.now();
+    const thirtyDaysAhead = now + 30 * 24 * 60 * 60 * 1000;
+
+    const coursesResponse = await this.classroom.courses.list({ courseStates: ['ACTIVE'] });
+    const courses: any[] = coursesResponse.data.courses || [];
+
+    const perCourse = await Promise.all(
+      courses.map(async (course: any) => {
+        try {
+          const cwResponse = await this.classroom.courses.courseWork.list({
+            courseId: course.id,
+            courseWorkStates: ['PUBLISHED'],
+          });
+          const items: any[] = cwResponse.data.courseWork || [];
+          return items
+            .filter((cw: any) => {
+              if (!cw.dueDate) return false;
+              const { year, month, day } = cw.dueDate;
+              const due = new Date(year, month - 1, day).getTime();
+              return due >= now && due <= thirtyDaysAhead;
+            })
+            .map((cw: any) => ({
+              courseId: course.id,
+              courseName: course.name,
+              assignmentId: cw.id,
+              title: cw.title,
+              dueDate: `${cw.dueDate.year}-${String(cw.dueDate.month).padStart(2, '0')}-${String(cw.dueDate.day).padStart(2, '0')}`,
+              maxPoints: cw.maxPoints ?? null,
+              alternateLink: cw.alternateLink ?? null,
+            }));
+        } catch {
+          return [];
+        }
+      })
+    );
+
+    const assignments = perCourse
+      .flat()
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(assignments, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async getGrades() {
+    const coursesResponse = await this.classroom.courses.list({ courseStates: ['ACTIVE'] });
+    const courses: any[] = coursesResponse.data.courses || [];
+
+    const perCourse = await Promise.all(
+      courses.map(async (course: any) => {
+        try {
+          const [cwResponse, subResponse] = await Promise.all([
+            this.classroom.courses.courseWork.list({
+              courseId: course.id,
+              courseWorkStates: ['PUBLISHED'],
+            }),
+            this.classroom.courses.courseWork.studentSubmissions.list({
+              courseId: course.id,
+              courseWorkId: '-',
+              userId: 'me',
+            }),
+          ]);
+
+          const courseworkMap: Record<string, any> = {};
+          for (const cw of cwResponse.data.courseWork || []) {
+            courseworkMap[cw.id] = cw;
+          }
+
+          return (subResponse.data.studentSubmissions || []).map((sub: any) => {
+            const cw = courseworkMap[sub.courseWorkId] || {};
+            return {
+              courseId: course.id,
+              courseName: course.name,
+              assignmentId: sub.courseWorkId,
+              title: cw.title ?? null,
+              state: sub.state,
+              assignedGrade: sub.assignedGrade ?? null,
+              maxPoints: cw.maxPoints ?? null,
+              dueDate: cw.dueDate
+                ? `${cw.dueDate.year}-${String(cw.dueDate.month).padStart(2, '0')}-${String(cw.dueDate.day).padStart(2, '0')}`
+                : null,
+              alternateLink: sub.alternateLink ?? null,
+            };
+          });
+        } catch {
+          return [];
+        }
+      })
+    );
+
+    const grades = perCourse.flat();
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(grades, null, 2),
         },
       ],
     };

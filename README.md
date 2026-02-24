@@ -1,119 +1,93 @@
 # Google Classroom MCP Server
 
-An advanced MCP (Model Context Protocol) server that provides comprehensive access to Google Classroom data through Claude and other AI assistants that support the MCP protocol.
+An MCP (Model Context Protocol) server that connects Claude to Google Classroom, letting you query courses, assignments, grades, and more through natural language.
 
-## ✨ Features
+## Available Tools
 
-- **📚 Course Management**: List, get details, and manage courses
-- **📝 Assignment Operations**: View, create, and manage coursework (requires teacher permissions for creation)
-- **👥 Student Management**: Access student rosters and submissions
-- **📢 Announcements**: View course announcements
-- **🔐 Secure Authentication**: OAuth 2.0 with environment variable storage
-- **🔄 Backward Compatibility**: Supports both new and legacy authentication methods
-- **🛠️ TypeScript**: Full TypeScript implementation with type safety
+| Tool | Description |
+|---|---|
+| `list_courses` | List all courses with optional filtering |
+| `get_course` | Get detailed info about a specific course |
+| `list_coursework` | List assignments in a course |
+| `get_coursework` | Get details for a specific assignment |
+| `create_coursework` | Create a new assignment (teacher permissions required) |
+| `list_students` | List students enrolled in a course |
+| `list_submissions` | View student submissions for an assignment |
+| `list_announcements` | View announcements for a course |
+| `get_upcoming_assignments` | Get all assignments due in the next 30 days across every active course |
+| `get_grades` | View your grades across all active courses |
 
-## 🎯 Available Tools
+Legacy tools (`courses`, `course-details`, `assignments`) are still supported for backward compatibility.
 
-### Core Tools (Enhanced)
-- `list_courses` - List all courses with advanced filtering
-- `get_course` - Get detailed course information
-- `list_coursework` - List assignments and coursework
-- `get_coursework` - Get specific assignment details
-- `list_students` - List enrolled students
-- `list_submissions` - View student submissions
-- `list_announcements` - View course announcements
-- `create_coursework` - **NEW**: Create assignments (teacher permissions required)
+---
 
-### Legacy Tools (Backward Compatibility)
-- `courses` - List courses (legacy)
-- `course-details` - Get course details (legacy)
-- `assignments` - Get assignments (legacy)
+## Setup
 
-## 📋 Prerequisites
+### Prerequisites
 
-- Node.js (v16 or higher)
-- A Google Cloud Platform project with the Google Classroom API enabled
-- OAuth 2.0 client credentials for the Google Classroom API
+- Node.js v16 or higher
+- A Google Cloud project with the Classroom API enabled
 
-## 🚀 Quick Installation
+### Step 1 — Clone and install
 
-### For Claude Desktop (Automated)
 ```bash
-npx -y @smithery/cli install @faizan45640/google-classroom-mcp-server --client claude
-```
-
-### Manual Installation
-```bash
-# Clone the repository
 git clone https://github.com/faizan45640/google-classroom-mcp-server.git
 cd google-classroom-mcp-server
-
-# Install dependencies
 npm install
-
-# Build the TypeScript code
 npm run build
 ```
 
-## 🔧 Authentication Setup
+### Step 2 — Create a Google Cloud project and enable the Classroom API
 
-### Step 1: Google Cloud Console Setup
+1. Go to [console.cloud.google.com](https://console.cloud.google.com/)
+2. Create a new project (or select an existing one)
+3. In the left menu, go to **APIs & Services → Library**
+4. Search for **Google Classroom API** and click **Enable**
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the **Google Classroom API**:
-   - Navigate to "APIs & Services" > "Library"
-   - Search for "Google Classroom API"
-   - Click "Enable"
+### Step 3 — Create OAuth 2.0 credentials
 
-### Step 2: Create OAuth 2.0 Credentials
+1. Go to **APIs & Services → Credentials**
+2. Click **Create Credentials → OAuth 2.0 Client ID**
+3. If prompted, configure the OAuth consent screen first:
+   - Set User Type to **External**
+   - Fill in an app name (anything works, e.g. "Classroom MCP")
+   - Add your Google account email as a test user
+4. Back on the credentials page, choose **Desktop app** as the application type
+5. Click **Create**, then **Download JSON**
+6. Rename the downloaded file to `credentials.json` and place it in the project root folder
 
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "OAuth 2.0 Client ID"
-3. Choose "**Desktop application**" as the application type
-4. Download the credentials JSON file
-5. Save it as `credentials.json` in the project root directory
-
-### Step 3: Run Authentication Setup
+### Step 4 — Authenticate
 
 ```bash
-# New method (recommended)
 npm run setup-auth
-
-# Legacy method (still supported)
-npm run auth
 ```
 
 This will:
-- Open a browser window for Google OAuth
-- Ask you to grant necessary permissions
-- Save authentication tokens securely
+1. Read your `credentials.json`
+2. Print a URL — **copy it and open it in your browser**
+3. Sign in with your Google account and click **Allow**
+4. Google will show you an authorization code — **copy it**
+5. Paste the code back into the terminal and press Enter
 
-## 🏃‍♂️ Running the Server
+On success, a `.env` file is created in the project root containing your credentials. You'll need these values in the next step.
 
-```bash
-# Build and start
-npm run build
-npm start
+> **No refresh token received?** This can happen if you've authorized the app before. Go to [myaccount.google.com/permissions](https://myaccount.google.com/permissions), remove the app's access, then run `npm run setup-auth` again.
 
-# Development mode
-npm run dev
+### Step 5 — Add the server to Claude Desktop
 
-# Test the server
-npm test
-```
+Open your Claude Desktop config file:
 
-## 🔗 Claude Desktop Configuration
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-### Windows
-Edit `%APPDATA%\Claude\claude_desktop_config.json`:
+Add the following entry (update the path and credential values):
 
 ```json
 {
   "mcpServers": {
     "google-classroom": {
       "command": "node",
-      "args": ["C:/path/to/your/google-classroom-mcp-server/dist/index.js"],
+      "args": ["C:/path/to/google-classroom-mcp-server/dist/index.js"],
       "env": {
         "GOOGLE_CLIENT_ID": "your_client_id",
         "GOOGLE_CLIENT_SECRET": "your_client_secret",
@@ -124,236 +98,113 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 }
 ```
 
-### macOS/Linux
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+To find your values, open the `.env` file created in Step 4 — it contains all three values with the matching names.
 
-```json
-{
-  "mcpServers": {
-    "google-classroom": {
-      "command": "node",
-      "args": ["/path/to/your/google-classroom-mcp-server/dist/index.js"],
-      "env": {
-        "GOOGLE_CLIENT_ID": "your_client_id",
-        "GOOGLE_CLIENT_SECRET": "your_client_secret",
-        "GOOGLE_REFRESH_TOKEN": "your_refresh_token"
-      }
-    }
-  }
-}
-```
+**Restart Claude Desktop** after saving the config.
 
-**💡 Tip**: Copy the environment variables from the `.env` file created during authentication setup.
+---
 
-## 🧪 Testing the Server
+## Verifying it works
 
-### 1. Basic Connection Test
-```bash
-npm test
-```
+Once Claude Desktop is restarted, try asking Claude:
 
-### 2. Manual Testing
-After running the server, you should see:
-```
-Google Classroom MCP server running on stdio
-✅ Authenticated via environment variables
-```
-
-### 3. Integration Testing with Claude
-
-Once configured in Claude Desktop, test with these example prompts:
-
-#### Basic Queries
 - "List all my Google Classroom courses"
-- "Show me details for my Math course"
-- "What assignments do I have in my History class?"
+- "What assignments do I have coming up in the next 30 days?"
+- "Show me my grades across all my courses"
+- "What assignments are in my [course name] class?"
+- "Show me the students in my [course name] course"
+- "Create a new assignment called 'Chapter 5 Quiz' in my [course name] course"
 
-#### Advanced Queries  
-- "Show me all students in course ID 123456789"
-- "List submissions for assignment ID 987654321 in course 123456789"
-- "Create a new assignment called 'Chapter 5 Quiz' in my Math course"
+---
 
-#### Legacy Compatibility
-- "Use the 'courses' tool to show my classes" (tests backward compatibility)
+## Running locally (without Claude Desktop)
 
-## 🛠️ Development
+```bash
+# Build
+npm run build
 
-### Project Structure
+# Run the server directly (reads credentials from .env automatically)
+npm start
+```
+
+---
+
+## Project structure
+
 ```
 google-classroom-mcp-server/
 ├── src/
-│   ├── index.ts          # Main server implementation
-│   └── setup-auth.ts     # Authentication setup
-├── dist/                 # Compiled JavaScript output
-├── credentials.json      # Google OAuth credentials (not in git)
-├── .env                  # Environment variables (not in git)
-├── tokens.json          # Legacy token storage (not in git)
-├── package.json         # Project configuration
-├── tsconfig.json        # TypeScript configuration
-└── README.md           # This file
+│   ├── index.ts          # Main server — all tools are defined here
+│   └── setup-auth.ts     # Interactive authentication setup
+├── dist/                 # Compiled output (generated by npm run build)
+├── credentials.json      # Your Google OAuth credentials (not committed to git)
+├── .env                  # Your tokens after running setup-auth (not committed to git)
+├── tokens.json           # Legacy token file for backward compatibility (not committed to git)
+├── package.json
+├── tsconfig.json
+└── README.md
 ```
 
-### Available Scripts
+---
+
+## API Reference
+
+### Courses
+- `list_courses(courseStates?, teacherId?, studentId?)` — list courses, optionally filtered by state (ACTIVE, ARCHIVED, etc.)
+- `get_course(courseId)` — get full details for one course
+
+### Assignments
+- `list_coursework(courseId, courseWorkStates?)` — list assignments in a course
+- `get_coursework(courseId, courseWorkId)` — get a specific assignment
+- `create_coursework(courseId, title, description?, dueDate?, dueTime?, maxPoints?, workType?)` — create an assignment (teacher only)
+- `get_upcoming_assignments()` — returns all published assignments with a due date in the next 30 days, across all active courses, sorted by due date
+
+### Grades & Submissions
+- `get_grades()` — returns your grade for every assignment across all active courses, including `assignedGrade`, `maxPoints`, `state`, and `dueDate`
+- `list_submissions(courseId, courseWorkId, userId?)` — list raw submission objects for an assignment
+
+### Students & Announcements
+- `list_students(courseId)` — list enrolled students
+- `list_announcements(courseId, announcementStates?)` — list announcements
+
+---
+
+## Troubleshooting
+
+**`credentials.json not found`**
+Make sure the file is in the project root (same folder as `package.json`), not in a subfolder.
+
+**`No refresh token received`**
+Revoke the app's existing access at [myaccount.google.com/permissions](https://myaccount.google.com/permissions), then re-run `npm run setup-auth`.
+
+**`Google Classroom API not initialized`**
+The server couldn't find credentials. Make sure the `env` block in your Claude Desktop config has all three values (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`).
+
+**Server not appearing in Claude Desktop**
+- Check that the file path in `args` points to `dist/index.js` and uses the correct absolute path
+- Make sure you ran `npm run build` so `dist/index.js` exists
+- Restart Claude Desktop fully after editing the config
+
+**Build errors**
 ```bash
-npm run build       # Compile TypeScript to JavaScript
-npm run start       # Run the compiled server
-npm run dev         # Build and run in development mode
-npm run setup-auth  # Run authentication setup
-npm run clean       # Remove compiled files
-npm run test        # Test the server connection
-npm run auth        # Legacy authentication command
-```
-
-### Building from Source
-```bash
-# Install dependencies
-npm install
-
-# Install TypeScript globally (if needed)
-npm install -g typescript
-
-# Build the project
-npm run build
-
-# Run the server
-npm start
-```
-
-## 🔒 Security Notes
-
-- **Environment Variables**: The server uses `.env` file for secure credential storage
-- **Legacy Support**: `tokens.json` is maintained for backward compatibility
-- **Git Ignore**: Sensitive files (`.env`, `credentials.json`, `tokens.json`) are excluded from version control
-- **Scoped Access**: Only requests necessary Google Classroom permissions
-- **Token Refresh**: Automatically handles token refresh
-
-## 🆕 What's New in v1.0.0
-
-### New Features
-- ✨ **TypeScript Implementation**: Full type safety and better development experience
-- 🔧 **Create Assignments**: Teachers can now create coursework programmatically
-- 👥 **Student Management**: List students and view their submissions
-- 🔐 **Enhanced Security**: Environment variable-based authentication
-- 📊 **Advanced Filtering**: More options for filtering courses and assignments
-
-### Improvements
-- 🔄 **Backward Compatibility**: All legacy tools (`courses`, `course-details`, `assignments`) still work
-- 🏗️ **Better Architecture**: Proper project structure with TypeScript
-- 📝 **Enhanced Documentation**: Comprehensive setup and testing instructions
-- 🛠️ **Developer Experience**: Better error messages and logging
-
-### Breaking Changes
-- **Build Step Required**: Now requires `npm run build` before running
-- **New Config Format**: Claude Desktop config should use `dist/index.js` path
-
-## 🔄 Migration Guide
-
-### From Legacy Version
-If you're upgrading from the old JavaScript version:
-
-1. **Backup your tokens**:
-   ```bash
-   cp tokens.json tokens.json.backup
-   ```
-
-2. **Pull latest changes**:
-   ```bash
-   git pull origin main
-   ```
-
-3. **Install new dependencies**:
-   ```bash
-   npm install
-   ```
-
-4. **Build the TypeScript code**:
-   ```bash
-   npm run build
-   ```
-
-5. **Update Claude Desktop config**:
-   - Change `index.js` to `dist/index.js` in your config
-   - Optionally run `npm run setup-auth` for enhanced security
-
-6. **Test the upgrade**:
-   ```bash
-   npm test
-   ```
-
-## 🐛 Troubleshooting
-
-### Authentication Issues
-```bash
-# Re-run authentication setup
-npm run setup-auth
-
-# Or use legacy method
-npm run auth
-
-# Check if tokens exist
-ls -la tokens.json .env
-```
-
-### Build Issues
-```bash
-# Clean and rebuild
 npm run clean
+npm install
 npm run build
-
-# Check TypeScript installation
-npx tsc --version
 ```
 
-### Permission Errors
-- Ensure your Google account has appropriate access to the courses
-- For creating assignments, you need teacher permissions
-- Verify your app is approved if using restricted scopes
+**`get_grades` returns empty**
+Grades are fetched for the authenticated user's own submissions. If you're logged in as a teacher, you won't have student submissions yourself. This tool is intended for student accounts.
 
-### Claude Desktop Connection Issues
-- Check that the path in `claude_desktop_config.json` points to `dist/index.js`
-- Restart Claude Desktop after configuration changes
-- Verify environment variables are correctly set
+---
 
-## 📚 API Reference
+## Security notes
 
-### Course Management
-- `list_courses(courseStates?, teacherId?, studentId?)` - List courses with filtering
-- `get_course(courseId)` - Get detailed course information
+- `credentials.json`, `.env`, and `tokens.json` are excluded from git via `.gitignore` — never commit these
+- The server only requests the minimum Classroom API scopes needed
+- Access tokens are refreshed automatically using the stored refresh token
 
-### Coursework & Assignments
-- `list_coursework(courseId, courseWorkStates?)` - List assignments in a course
-- `get_coursework(courseId, courseWorkId)` - Get specific assignment details
-- `create_coursework(courseId, title, description?, dueDate?, maxPoints?, workType?)` - Create new assignment
+---
 
-### Students & Submissions
-- `list_students(courseId)` - List enrolled students
-- `list_submissions(courseId, courseWorkId, userId?)` - View student submissions
+## License
 
-### Communication
-- `list_announcements(courseId, announcementStates?)` - View course announcements
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes
-4. Build and test: `npm run build && npm test`
-5. Commit your changes: `git commit -am 'Add feature'`
-6. Push to the branch: `git push origin feature-name`
-7. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- Built on the [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
-- Uses Google's [Classroom API](https://developers.google.com/classroom)
-- TypeScript implementation for enhanced developer experience
-
-## 📞 Support
-
-- 🐛 **Issues**: [GitHub Issues](https://github.com/faizan45640/google-classroom-mcp-server/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/faizan45640/google-classroom-mcp-server/discussions)
-- 📖 **Documentation**: See this README and inline code comments
+MIT
