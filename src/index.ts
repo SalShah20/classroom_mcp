@@ -552,17 +552,22 @@ class GoogleClassroomMCPServer {
               if (!cw.dueDate) return false;
               const { year, month, day } = cw.dueDate;
               const due = new Date(year, month - 1, day).getTime();
-              return due >= now && due <= thirtyDaysAhead;
+              return due <= thirtyDaysAhead;
             })
-            .map((cw: any) => ({
-              courseId: course.id,
-              courseName: course.name,
-              assignmentId: cw.id,
-              title: cw.title,
-              dueDate: `${cw.dueDate.year}-${String(cw.dueDate.month).padStart(2, '0')}-${String(cw.dueDate.day).padStart(2, '0')}`,
-              maxPoints: cw.maxPoints ?? null,
-              alternateLink: cw.alternateLink ?? null,
-            }));
+            .map((cw: any) => {
+              const { year, month, day } = cw.dueDate;
+              const due = new Date(year, month - 1, day).getTime();
+              return {
+                courseId: course.id,
+                courseName: course.name,
+                assignmentId: cw.id,
+                title: cw.title,
+                dueDate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+                overdue: due < now,
+                maxPoints: cw.maxPoints ?? null,
+                alternateLink: cw.alternateLink ?? null,
+              };
+            });
         } catch {
           return [];
         }
