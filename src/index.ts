@@ -347,24 +347,6 @@ class GoogleClassroomMCPServer {
             },
           },
           {
-            name: 'get_submission_feedback',
-            description: 'Get your grade and feedback for a specific assignment submission',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                courseId: {
-                  type: 'string',
-                  description: 'The ID of the course',
-                },
-                courseWorkId: {
-                  type: 'string',
-                  description: 'The ID of the assignment',
-                },
-              },
-              required: ['courseId', 'courseWorkId'],
-            },
-          },
-          {
             name: 'calculate_grade',
             description: 'Calculate your overall grade percentage for a course based on all graded assignments',
             inputSchema: {
@@ -454,9 +436,6 @@ class GoogleClassroomMCPServer {
 
           case 'get_assignments':
             return await this.getAssignments(request.params.arguments as { courseId: string });
-
-          case 'get_submission_feedback':
-            return await this.getSubmissionFeedback(request.params.arguments as { courseId: string; courseWorkId: string });
 
           case 'calculate_grade':
             return await this.calculateGrade(request.params.arguments as { courseId: string });
@@ -825,42 +804,6 @@ class GoogleClassroomMCPServer {
 
     return {
       content: [{ type: 'text', text: JSON.stringify(assignments, null, 2) }],
-    };
-  }
-
-  private async getSubmissionFeedback(args: { courseId: string; courseWorkId: string }) {
-    const [cwResponse, subResponse] = await Promise.all([
-      this.classroom.courses.courseWork.get({
-        courseId: args.courseId,
-        id: args.courseWorkId,
-      }),
-      this.classroom.courses.courseWork.studentSubmissions.list({
-        courseId: args.courseId,
-        courseWorkId: args.courseWorkId,
-        userId: 'me',
-      }),
-    ]);
-
-    const cw = cwResponse.data;
-    const submission = (subResponse.data.studentSubmissions || [])[0] ?? null;
-
-    const result = {
-      assignmentTitle: cw.title,
-      assignmentDescription: cw.description ?? null,
-      maxPoints: cw.maxPoints ?? null,
-      submission: submission
-        ? {
-            state: submission.state,
-            assignedGrade: submission.assignedGrade ?? null,
-            draftGrade: submission.draftGrade ?? null,
-            late: submission.late ?? false,
-            updateTime: submission.updateTime ?? null,
-          }
-        : null,
-    };
-
-    return {
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     };
   }
 

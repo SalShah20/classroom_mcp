@@ -15,7 +15,6 @@ An MCP (Model Context Protocol) server that connects Claude to Google Classroom,
 | `get_assignment_materials` | Get Drive files, links, videos, and forms attached to an assignment |
 | `get_upcoming_assignments` | Assignments due in the next N days (default: 7) across all active courses |
 | `get_missing_assignments` | Past-due assignments you haven't submitted |
-| `get_submission_feedback` | Your grade and feedback for a specific assignment |
 | `get_grades` | Your grades across all active courses |
 | `calculate_grade` | Your overall grade percentage for a course |
 | `list_announcements` | View announcements for a course |
@@ -129,7 +128,6 @@ Once Claude Desktop is restarted, try asking Claude:
 - "Show me my grades for my [course name] class"
 - "What's my overall grade percentage in [course name]?"
 - "What materials are attached to the [assignment name] assignment?"
-- "Did my teacher leave any feedback on my last submission?"
 
 **Teachers:**
 - "Show me the students in my [course name] course"
