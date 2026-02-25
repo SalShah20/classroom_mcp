@@ -16,14 +16,14 @@ const SCOPES = [
 ];
 
 async function setupAuthentication() {
-  console.log('🎓 Google Classroom MCP Server Authentication Setup');
+  console.log('Google Classroom MCP Server Authentication Setup');
   console.log('==================================================\n');
 
   // Check if credentials file exists
   const credentialsPath = path.join(process.cwd(), 'credentials.json');
   if (!fs.existsSync(credentialsPath)) {
-    console.error('❌ credentials.json not found!');
-    console.log('\n📋 To set up authentication:');
+    console.error('credentials.json not found!');
+    console.log('\nTo set up authentication:');
     console.log('1. Go to https://console.cloud.google.com/');
     console.log('2. Create a new project or select an existing one');
     console.log('3. Enable the Google Classroom API');
@@ -41,7 +41,7 @@ async function setupAuthentication() {
   const { client_id, client_secret, redirect_uris } = credentials.installed || credentials.web;
   
   if (!client_id || !client_secret) {
-    console.error('❌ Invalid credentials.json format');
+    console.error('Invalid credentials.json format');
     console.error('Make sure you downloaded the correct OAuth 2.0 Client ID credentials');
     process.exit(1);
   }
@@ -60,7 +60,7 @@ async function setupAuthentication() {
     prompt: 'consent', // Force consent screen to get refresh token
   });
 
-  console.log('🔐 Please visit this URL to authorize the application:');
+  console.log('Please visit this URL to authorize the application:');
   console.log(`\n${authUrl}\n`);
 
   // Get authorization code from user
@@ -81,7 +81,7 @@ async function setupAuthentication() {
     const { tokens } = await oauth2Client.getToken(code);
     
     if (!tokens.refresh_token) {
-      console.error('❌ No refresh token received. Please try again and make sure to grant all permissions.');
+      console.error('No refresh token received. Please try again and make sure to grant all permissions.');
       process.exit(1);
     }
 
@@ -107,18 +107,18 @@ GOOGLE_REFRESH_TOKEN="${tokens.refresh_token}"
     
     fs.writeFileSync('tokens.json', JSON.stringify(tokensForLegacy, null, 2));
     
-    console.log('✅ Authentication successful!');
-    console.log('🔑 Tokens saved to .env file (secure)');
-    console.log('🔄 Legacy tokens.json also created for backward compatibility');
-    console.log('\n🚀 You can now run the MCP server with:');
+    console.log('Authentication successful!');
+    console.log('Tokens saved to .env file (secure)');
+    console.log('Legacy tokens.json also created for backward compatibility');
+    console.log('\nYou can now run the MCP server with:');
     console.log('   npm run build && npm start');
-    console.log('\n📱 Or test it with:');
+    console.log('\nOr test it with:');
     console.log('   npm test');
-    console.log('\n🔧 Add to Claude Desktop config:');
+    console.log('\nAdd to Claude Desktop config:');
     console.log('   See README.md for configuration instructions');
 
   } catch (error) {
-    console.error('❌ Error getting tokens:', error);
+    console.error('Error getting tokens:', error);
     process.exit(1);
   }
 }

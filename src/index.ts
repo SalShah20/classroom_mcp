@@ -60,7 +60,7 @@ class GoogleClassroomMCPServer {
         });
         
         this.classroom = google.classroom({ version: 'v1', auth: this.auth });
-        console.error('✅ Authenticated via environment variables');
+        console.error('Authenticated via environment variables');
         return;
       }
 
@@ -82,11 +82,11 @@ class GoogleClassroomMCPServer {
 
         this.auth.setCredentials(tokens);
         this.classroom = google.classroom({ version: 'v1', auth: this.auth });
-        console.error('✅ Authenticated via tokens.json (legacy mode)');
+        console.error('Authenticated via tokens.json (legacy mode)');
         return;
       }
 
-      console.error('❌ No authentication found. Please run: npm run setup-auth');
+      console.error('No authentication found. Please run: npm run setup-auth');
       console.error('   Or use legacy: node index.js auth');
       
     } catch (error) {
