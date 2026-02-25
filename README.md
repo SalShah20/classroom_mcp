@@ -33,8 +33,6 @@ An MCP (Model Context Protocol) server that connects Claude to Google Classroom,
 | `list_submissions` | View all student submissions for an assignment |
 | `list_announcements` | View announcements for a course |
 
-Legacy tools (`courses`, `course-details`, `assignments`) are still supported for backward compatibility.
-
 ---
 
 ## Setup
@@ -225,20 +223,13 @@ npm run clean
 npm install
 npm run build
 ```
-
-**`get_grades` returns empty**
-Grades are fetched for the authenticated user's own submissions. If you're logged in as a teacher, you won't have student submissions yourself. This tool is intended for student accounts.
-
 ---
 
 ## Security notes
 
-- `credentials.json`, `.env`, and `tokens.json` are excluded from git via `.gitignore` — never commit these
 - The server only requests the minimum Classroom API scopes needed
 - Access tokens are refreshed automatically using the stored refresh token
 
 ---
 
-## License
 
-MIT
