@@ -4,18 +4,34 @@ An MCP (Model Context Protocol) server that connects Claude to Google Classroom,
 
 ## Available Tools
 
+### Student tools
+
 | Tool | Description |
 |---|---|
-| `list_courses` | List all courses with optional filtering |
+| `list_courses` | List all your courses with optional filtering |
 | `get_course` | Get detailed info about a specific course |
-| `list_coursework` | List assignments in a course |
+| `get_assignments` | Get all published assignments in a course |
 | `get_coursework` | Get details for a specific assignment |
-| `create_coursework` | Create a new assignment (teacher permissions required) |
-| `list_students` | List students enrolled in a course |
-| `list_submissions` | View student submissions for an assignment |
+| `get_assignment_materials` | Get Drive files, links, videos, and forms attached to an assignment |
+| `get_upcoming_assignments` | Assignments due in the next N days (default: 7) across all active courses |
+| `get_missing_assignments` | Past-due assignments you haven't submitted |
+| `get_submission_feedback` | Your grade and feedback for a specific assignment |
+| `get_grades` | Your grades across all active courses |
+| `calculate_grade` | Your overall grade percentage for a course |
 | `list_announcements` | View announcements for a course |
-| `get_upcoming_assignments` | Get all assignments due in the next 30 days across every active course |
-| `get_grades` | View your grades across all active courses |
+
+### Teacher tools
+
+| Tool | Description |
+|---|---|
+| `list_courses` | List all courses (filter by teacherId to see only yours) |
+| `get_course` | Get detailed info about a specific course |
+| `list_coursework` | List assignments in a course (supports state filtering) |
+| `get_coursework` | Get details for a specific assignment |
+| `create_coursework` | Create a new assignment with title, description, due date, and points |
+| `list_students` | List students enrolled in a course |
+| `list_submissions` | View all student submissions for an assignment |
+| `list_announcements` | View announcements for a course |
 
 Legacy tools (`courses`, `course-details`, `assignments`) are still supported for backward compatibility.
 
@@ -31,8 +47,8 @@ Legacy tools (`courses`, `course-details`, `assignments`) are still supported fo
 ### Step 1 — Clone and install
 
 ```bash
-git clone https://github.com/faizan45640/google-classroom-mcp-server.git
-cd google-classroom-mcp-server
+git clone https://github.com/SalShah20/classroom_mcp.git
+cd classroom_mcp
 npm install
 npm run build
 ```
@@ -87,7 +103,7 @@ Add the following entry (update the path and credential values):
   "mcpServers": {
     "google-classroom": {
       "command": "node",
-      "args": ["C:/path/to/google-classroom-mcp-server/dist/index.js"],
+      "args": ["C:/path/to/classroom_mcp/dist/index.js"],
       "env": {
         "GOOGLE_CLIENT_ID": "your_client_id",
         "GOOGLE_CLIENT_SECRET": "your_client_secret",
@@ -108,12 +124,19 @@ To find your values, open the `.env` file created in Step 4 — it contains all 
 
 Once Claude Desktop is restarted, try asking Claude:
 
+**Students:**
 - "List all my Google Classroom courses"
-- "What assignments do I have coming up in the next 30 days?"
-- "Show me my grades across all my courses"
-- "What assignments are in my [course name] class?"
+- "What assignments do I have coming up this week?"
+- "Do I have any missing assignments?"
+- "Show me my grades for my [course name] class"
+- "What's my overall grade percentage in [course name]?"
+- "What materials are attached to the [assignment name] assignment?"
+- "Did my teacher leave any feedback on my last submission?"
+
+**Teachers:**
 - "Show me the students in my [course name] course"
-- "Create a new assignment called 'Chapter 5 Quiz' in my [course name] course"
+- "List all submissions for the [assignment name] assignment"
+- "Create a new assignment called 'Chapter 5 Quiz' in my [course name] course due 2026-03-15 worth 100 points"
 
 ---
 
@@ -132,7 +155,7 @@ npm start
 ## Project structure
 
 ```
-google-classroom-mcp-server/
+classroom_mcp/
 ├── src/
 │   ├── index.ts          # Main server — all tools are defined here
 │   └── setup-auth.ts     # Interactive authentication setup
@@ -153,15 +176,26 @@ google-classroom-mcp-server/
 - `list_courses(courseStates?, teacherId?, studentId?)` — list courses, optionally filtered by state (ACTIVE, ARCHIVED, etc.)
 - `get_course(courseId)` — get full details for one course
 
-### Assignments
-- `list_coursework(courseId, courseWorkStates?)` — list assignments in a course
-- `get_coursework(courseId, courseWorkId)` — get a specific assignment
-- `create_coursework(courseId, title, description?, dueDate?, dueTime?, maxPoints?, workType?)` — create an assignment (teacher only)
-- `get_upcoming_assignments()` — returns all published assignments with a due date in the next 30 days, across all active courses, sorted by due date
+### Assignments (Student)
+- `get_assignments(courseId)` — list all published assignments in a course with title, due date, max points, and type
+- `get_coursework(courseId, courseWorkId)` — get full details for a specific assignment
+- `get_assignment_materials(courseId, courseWorkId)` — get all attached materials (Drive files, links, YouTube videos, Google Forms)
+- `get_upcoming_assignments(days?)` — assignments due within the next `days` days across all active courses, sorted by due date. Defaults to 7 days
+- `get_missing_assignments()` — past-due assignments with no submission across all active courses
+
+### Assignments (Teacher)
+- `list_coursework(courseId, courseWorkStates?)` — list assignments in a course, optionally filtered by state (PUBLISHED, DRAFT, DELETED)
+- `create_coursework(courseId, title, description?, dueDate?, dueTime?, maxPoints?, workType?)` — create an assignment
+  - `dueDate` format: `"YYYY-MM-DD"` e.g. `"2026-03-15"`
+  - `dueTime` format: `"HH:MM"` (24-hour) e.g. `"23:59"`
+  - `maxPoints`: positive number e.g. `100`
+  - `workType`: `"ASSIGNMENT"` | `"SHORT_ANSWER_QUESTION"` | `"MULTIPLE_CHOICE_QUESTION"` (default: `"ASSIGNMENT"`)
 
 ### Grades & Submissions
-- `get_grades()` — returns your grade for every assignment across all active courses, including `assignedGrade`, `maxPoints`, `state`, and `dueDate`
-- `list_submissions(courseId, courseWorkId, userId?)` — list raw submission objects for an assignment
+- `get_grades()` — your grade for every assignment across all active courses, including `assignedGrade`, `maxPoints`, `state`, and `dueDate`
+- `get_submission_feedback(courseId, courseWorkId)` — your grade, draft grade, late status, and feedback for a specific assignment
+- `calculate_grade(courseId)` — overall grade percentage for a course plus a per-assignment breakdown
+- `list_submissions(courseId, courseWorkId, userId?)` — list all raw submission objects for an assignment (teacher use)
 
 ### Students & Announcements
 - `list_students(courseId)` — list enrolled students

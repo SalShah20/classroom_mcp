@@ -290,15 +290,17 @@ class GoogleClassroomMCPServer {
                 },
                 dueDate: {
                   type: 'string',
-                  description: 'Due date in YYYY-MM-DD format (optional)',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: 'Due date in YYYY-MM-DD format. Example: "2026-03-15" for March 15, 2026.',
                 },
                 dueTime: {
                   type: 'string',
-                  description: 'Due time in HH:MM format (optional)',
+                  pattern: '^\\d{2}:\\d{2}$',
+                  description: 'Due time in 24-hour HH:MM format. Example: "23:59" for 11:59 PM, "08:00" for 8:00 AM. Only used if dueDate is also provided.',
                 },
                 maxPoints: {
                   type: 'number',
-                  description: 'Maximum points for the assignment (optional)',
+                  description: 'Maximum points the assignment is worth. Must be a positive number. Example: 100',
                 },
                 workType: {
                   type: 'string',
@@ -311,10 +313,87 @@ class GoogleClassroomMCPServer {
           },
           {
             name: 'get_upcoming_assignments',
-            description: 'Get upcoming assignments due within the next 30 days across all active courses',
+            description: 'Get upcoming assignments due within the next N days across all active courses. Defaults to 7 days.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                days: {
+                  type: 'number',
+                  description: 'Number of days to look ahead. Defaults to 7. Example: 7 for one week, 14 for two weeks, 30 for one month.',
+                },
+              },
+            },
+          },
+          {
+            name: 'get_missing_assignments',
+            description: 'Get all past-due assignments that have not been submitted across all active courses',
             inputSchema: {
               type: 'object',
               properties: {},
+            },
+          },
+          {
+            name: 'get_assignments',
+            description: 'Get all published assignments for a specific course, formatted for easy reading',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                courseId: {
+                  type: 'string',
+                  description: 'The ID of the course',
+                },
+              },
+              required: ['courseId'],
+            },
+          },
+          {
+            name: 'get_submission_feedback',
+            description: 'Get your grade and feedback for a specific assignment submission',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                courseId: {
+                  type: 'string',
+                  description: 'The ID of the course',
+                },
+                courseWorkId: {
+                  type: 'string',
+                  description: 'The ID of the assignment',
+                },
+              },
+              required: ['courseId', 'courseWorkId'],
+            },
+          },
+          {
+            name: 'calculate_grade',
+            description: 'Calculate your overall grade percentage for a course based on all graded assignments',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                courseId: {
+                  type: 'string',
+                  description: 'The ID of the course',
+                },
+              },
+              required: ['courseId'],
+            },
+          },
+          {
+            name: 'get_assignment_materials',
+            description: 'Get all materials and attachments for a specific assignment (Drive files, links, YouTube videos, forms)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                courseId: {
+                  type: 'string',
+                  description: 'The ID of the course',
+                },
+                courseWorkId: {
+                  type: 'string',
+                  description: 'The ID of the assignment',
+                },
+              },
+              required: ['courseId', 'courseWorkId'],
             },
           },
           {
@@ -368,7 +447,22 @@ class GoogleClassroomMCPServer {
             return await this.createCoursework(request.params.arguments as any);
 
           case 'get_upcoming_assignments':
-            return await this.getUpcomingAssignments();
+            return await this.getUpcomingAssignments(request.params.arguments as { days?: number } || {});
+
+          case 'get_missing_assignments':
+            return await this.getMissingAssignments();
+
+          case 'get_assignments':
+            return await this.getAssignments(request.params.arguments as { courseId: string });
+
+          case 'get_submission_feedback':
+            return await this.getSubmissionFeedback(request.params.arguments as { courseId: string; courseWorkId: string });
+
+          case 'calculate_grade':
+            return await this.calculateGrade(request.params.arguments as { courseId: string });
+
+          case 'get_assignment_materials':
+            return await this.getAssignmentMaterials(request.params.arguments as { courseId: string; courseWorkId: string });
 
           case 'get_grades':
             return await this.getGrades();
@@ -532,9 +626,10 @@ class GoogleClassroomMCPServer {
     };
   }
 
-  private async getUpcomingAssignments() {
+  private async getUpcomingAssignments(args: { days?: number } = {}) {
+    const days = args.days ?? 7;
     const now = Date.now();
-    const thirtyDaysAhead = now + 30 * 24 * 60 * 60 * 1000;
+    const cutoff = now + days * 24 * 60 * 60 * 1000;
 
     const coursesResponse = await this.classroom.courses.list({ courseStates: ['ACTIVE'] });
     const courses: any[] = coursesResponse.data.courses || [];
@@ -552,18 +647,16 @@ class GoogleClassroomMCPServer {
               if (!cw.dueDate) return false;
               const { year, month, day } = cw.dueDate;
               const due = new Date(year, month - 1, day).getTime();
-              return due <= thirtyDaysAhead;
+              return due >= now && due <= cutoff;
             })
             .map((cw: any) => {
               const { year, month, day } = cw.dueDate;
-              const due = new Date(year, month - 1, day).getTime();
               return {
                 courseId: course.id,
                 courseName: course.name,
                 assignmentId: cw.id,
                 title: cw.title,
                 dueDate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-                overdue: due < now,
                 maxPoints: cw.maxPoints ?? null,
                 alternateLink: cw.alternateLink ?? null,
               };
@@ -643,6 +736,235 @@ class GoogleClassroomMCPServer {
           text: JSON.stringify(grades, null, 2),
         },
       ],
+    };
+  }
+
+  private async getMissingAssignments() {
+    const now = Date.now();
+
+    const coursesResponse = await this.classroom.courses.list({ courseStates: ['ACTIVE'] });
+    const courses: any[] = coursesResponse.data.courses || [];
+
+    const perCourse = await Promise.all(
+      courses.map(async (course: any) => {
+        try {
+          const [cwResponse, subResponse] = await Promise.all([
+            this.classroom.courses.courseWork.list({
+              courseId: course.id,
+              courseWorkStates: ['PUBLISHED'],
+            }),
+            this.classroom.courses.courseWork.studentSubmissions.list({
+              courseId: course.id,
+              courseWorkId: '-',
+              userId: 'me',
+            }),
+          ]);
+
+          const submissionMap: Record<string, any> = {};
+          for (const sub of subResponse.data.studentSubmissions || []) {
+            submissionMap[sub.courseWorkId] = sub;
+          }
+
+          const items: any[] = cwResponse.data.courseWork || [];
+          return items
+            .filter((cw: any) => {
+              if (!cw.dueDate) return false;
+              const { year, month, day } = cw.dueDate;
+              const due = new Date(year, month - 1, day).getTime();
+              if (due >= now) return false;
+              const sub = submissionMap[cw.id];
+              if (!sub) return true;
+              return sub.state !== 'TURNED_IN' && sub.state !== 'RETURNED';
+            })
+            .map((cw: any) => {
+              const { year, month, day } = cw.dueDate;
+              const sub = submissionMap[cw.id];
+              return {
+                courseId: course.id,
+                courseName: course.name,
+                assignmentId: cw.id,
+                title: cw.title,
+                dueDate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+                maxPoints: cw.maxPoints ?? null,
+                submissionState: sub?.state ?? 'NOT_STARTED',
+                alternateLink: cw.alternateLink ?? null,
+              };
+            });
+        } catch {
+          return [];
+        }
+      })
+    );
+
+    const missing = perCourse.flat().sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify(missing, null, 2) }],
+    };
+  }
+
+  private async getAssignments(args: { courseId: string }) {
+    const response = await this.classroom.courses.courseWork.list({
+      courseId: args.courseId,
+      courseWorkStates: ['PUBLISHED'],
+    });
+
+    const items: any[] = response.data.courseWork || [];
+    const assignments = items.map((cw: any) => ({
+      id: cw.id,
+      title: cw.title,
+      description: cw.description ?? null,
+      workType: cw.workType,
+      maxPoints: cw.maxPoints ?? null,
+      dueDate: cw.dueDate
+        ? `${cw.dueDate.year}-${String(cw.dueDate.month).padStart(2, '0')}-${String(cw.dueDate.day).padStart(2, '0')}`
+        : null,
+      creationTime: cw.creationTime ?? null,
+      alternateLink: cw.alternateLink ?? null,
+    }));
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify(assignments, null, 2) }],
+    };
+  }
+
+  private async getSubmissionFeedback(args: { courseId: string; courseWorkId: string }) {
+    const [cwResponse, subResponse] = await Promise.all([
+      this.classroom.courses.courseWork.get({
+        courseId: args.courseId,
+        id: args.courseWorkId,
+      }),
+      this.classroom.courses.courseWork.studentSubmissions.list({
+        courseId: args.courseId,
+        courseWorkId: args.courseWorkId,
+        userId: 'me',
+      }),
+    ]);
+
+    const cw = cwResponse.data;
+    const submission = (subResponse.data.studentSubmissions || [])[0] ?? null;
+
+    const result = {
+      assignmentTitle: cw.title,
+      assignmentDescription: cw.description ?? null,
+      maxPoints: cw.maxPoints ?? null,
+      submission: submission
+        ? {
+            state: submission.state,
+            assignedGrade: submission.assignedGrade ?? null,
+            draftGrade: submission.draftGrade ?? null,
+            late: submission.late ?? false,
+            updateTime: submission.updateTime ?? null,
+          }
+        : null,
+    };
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
+  private async calculateGrade(args: { courseId: string }) {
+    const [cwResponse, subResponse] = await Promise.all([
+      this.classroom.courses.courseWork.list({
+        courseId: args.courseId,
+        courseWorkStates: ['PUBLISHED'],
+      }),
+      this.classroom.courses.courseWork.studentSubmissions.list({
+        courseId: args.courseId,
+        courseWorkId: '-',
+        userId: 'me',
+      }),
+    ]);
+
+    const courseworkMap: Record<string, any> = {};
+    for (const cw of cwResponse.data.courseWork || []) {
+      courseworkMap[cw.id] = cw;
+    }
+
+    let totalEarned = 0;
+    let totalPossible = 0;
+    const breakdown: any[] = [];
+
+    for (const sub of subResponse.data.studentSubmissions || []) {
+      const cw = courseworkMap[sub.courseWorkId];
+      if (!cw || cw.maxPoints == null || sub.assignedGrade == null) continue;
+      totalEarned += sub.assignedGrade;
+      totalPossible += cw.maxPoints;
+      breakdown.push({
+        assignmentId: sub.courseWorkId,
+        title: cw.title ?? null,
+        earned: sub.assignedGrade,
+        possible: cw.maxPoints,
+        percentage: cw.maxPoints > 0 ? Math.round((sub.assignedGrade / cw.maxPoints) * 1000) / 10 : null,
+      });
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          courseId: args.courseId,
+          totalEarned,
+          totalPossible,
+          overallPercentage: totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 1000) / 10 : null,
+          gradedAssignments: breakdown.length,
+          breakdown,
+        }, null, 2),
+      }],
+    };
+  }
+
+  private async getAssignmentMaterials(args: { courseId: string; courseWorkId: string }) {
+    const response = await this.classroom.courses.courseWork.get({
+      courseId: args.courseId,
+      id: args.courseWorkId,
+    });
+
+    const cw = response.data;
+    const materials = (cw.materials || []).map((m: any) => {
+      if (m.driveFile) {
+        return {
+          type: 'driveFile',
+          title: m.driveFile.driveFile?.title ?? null,
+          url: m.driveFile.driveFile?.alternateLink ?? null,
+          shareMode: m.driveFile.shareMode ?? null,
+        };
+      } else if (m.youTubeVideo) {
+        return {
+          type: 'youTubeVideo',
+          title: m.youTubeVideo.title ?? null,
+          url: m.youTubeVideo.alternateLink ?? null,
+          thumbnailUrl: m.youTubeVideo.thumbnailUrl ?? null,
+        };
+      } else if (m.link) {
+        return {
+          type: 'link',
+          title: m.link.title ?? null,
+          url: m.link.url ?? null,
+        };
+      } else if (m.form) {
+        return {
+          type: 'form',
+          title: m.form.title ?? null,
+          url: m.form.formUrl ?? null,
+          responseUrl: m.form.responseUrl ?? null,
+        };
+      }
+      return { type: 'unknown', raw: m };
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          assignmentId: cw.id,
+          title: cw.title,
+          description: cw.description ?? null,
+          materials,
+          alternateLink: cw.alternateLink ?? null,
+        }, null, 2),
+      }],
     };
   }
 
