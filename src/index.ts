@@ -576,7 +576,7 @@ class GoogleClassroomMCPServer {
       state: 'PUBLISHED',
     };
 
-    if (args.maxPoints) {
+    if (args.maxPoints != null) {
       courseWork.maxPoints = args.maxPoints;
     }
 
@@ -607,7 +607,9 @@ class GoogleClassroomMCPServer {
 
   private async getUpcomingAssignments(args: { days?: number } = {}) {
     const days = args.days ?? 7;
-    const now = Date.now();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const now = today.getTime();
     const cutoff = now + days * 24 * 60 * 60 * 1000;
 
     const coursesResponse = await this.classroom.courses.list({ courseStates: ['ACTIVE'] });
