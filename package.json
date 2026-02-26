@@ -1,11 +1,11 @@
 {
-  "name": "google-classroom-mcp-server",
+  "name": "@salshah20/google-classroom-mcp",
   "version": "1.0.0",
   "description": "An MCP server that provides access to Google Classroom data through Claude and other AI assistants that support the MCP protocol.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "google-classroom-mcp-server": "./dist/index.js"
+    "google-classroom-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -18,10 +18,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SalShah20/classroom_mcp.git"
+    "url": "git+https://github.com/SalShah20/classroom_mcp.git"
   },
   "keywords": [
-    "mcp", "google-classroom", "claude", "ai", "model-context-protocol", "education"],
+    "mcp",
+    "google-classroom",
+    "claude",
+    "ai",
+    "model-context-protocol",
+    "education"
+  ],
   "author": "Saloni Shah",
   "license": "MIT",
   "dependencies": {
