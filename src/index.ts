@@ -13,6 +13,10 @@ import { OAuth2Client } from 'google-auth-library';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Default OAuth credentials — injected at publish time via inject-credentials.js
+const DEFAULT_CLIENT_ID = '__GOOGLE_CLIENT_ID__';
+const DEFAULT_CLIENT_SECRET = '__GOOGLE_CLIENT_SECRET__';
+
 // Google Classroom API scopes
 const SCOPES = [
   'https://www.googleapis.com/auth/classroom.courses.readonly',
@@ -48,17 +52,17 @@ class GoogleClassroomMCPServer {
   private async setupAuth() {
     try {
       // Try environment variables first (new method)
-      if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN) {
-        this.auth = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET,
-          process.env.GOOGLE_REDIRECT_URI || 'urn:ietf:wg:oauth:2.0:oob'
-        );
+      if (process.env.GOOGLE_REFRESH_TOKEN) {
+        const clientId = process.env.GOOGLE_CLIENT_ID || DEFAULT_CLIENT_ID;
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET || DEFAULT_CLIENT_SECRET;
+        const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'urn:ietf:wg:oauth:2.0:oob';
+
+        this.auth = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
         this.auth.setCredentials({
           refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
         });
-        
+
         this.classroom = google.classroom({ version: 'v1', auth: this.auth });
         console.error('Authenticated via environment variables');
         return;

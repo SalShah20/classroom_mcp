@@ -14,7 +14,8 @@
     "setup-auth": "tsc && node dist/setup-auth.js",
     "clean": "rmdir /s /q dist",
     "test": "npm run build && node dist/index.js",
-    "auth": "npm run setup-auth"
+    "auth": "npm run setup-auth",
+    "prepublishOnly": "tsc && node inject-credentials.js"
   },
   "repository": {
     "type": "git",
