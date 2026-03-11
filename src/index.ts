@@ -21,7 +21,7 @@ const DEFAULT_CLIENT_SECRET = '__GOOGLE_CLIENT_SECRET__';
 const SCOPES = [
   'https://www.googleapis.com/auth/classroom.courses.readonly',
   'https://www.googleapis.com/auth/classroom.rosters.readonly',
-  'https://www.googleapis.com/auth/classroom.coursework.students',
+  'https://www.googleapis.com/auth/classroom.coursework.students.readonly',
   'https://www.googleapis.com/auth/classroom.coursework.me',
   'https://www.googleapis.com/auth/classroom.announcements.readonly',
   'https://www.googleapis.com/auth/classroom.profile.emails',
@@ -275,47 +275,6 @@ class GoogleClassroomMCPServer {
             },
           },
           {
-            name: 'create_coursework',
-            description: 'Create a new assignment in a course (requires teacher permissions)',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                courseId: {
-                  type: 'string',
-                  description: 'The ID of the course',
-                },
-                title: {
-                  type: 'string',
-                  description: 'Title of the assignment',
-                },
-                description: {
-                  type: 'string',
-                  description: 'Description/instructions for the assignment',
-                },
-                dueDate: {
-                  type: 'string',
-                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
-                  description: 'Due date in YYYY-MM-DD format. Example: "2026-03-15" for March 15, 2026.',
-                },
-                dueTime: {
-                  type: 'string',
-                  pattern: '^\\d{2}:\\d{2}$',
-                  description: 'Due time in 24-hour HH:MM format. Example: "23:59" for 11:59 PM, "08:00" for 8:00 AM. Only used if dueDate is also provided.',
-                },
-                maxPoints: {
-                  type: 'number',
-                  description: 'Maximum points the assignment is worth. Must be a positive number. Example: 100',
-                },
-                workType: {
-                  type: 'string',
-                  enum: ['ASSIGNMENT', 'SHORT_ANSWER_QUESTION', 'MULTIPLE_CHOICE_QUESTION'],
-                  description: 'Type of coursework',
-                },
-              },
-              required: ['courseId', 'title'],
-            },
-          },
-          {
             name: 'get_upcoming_assignments',
             description: 'Get upcoming assignments due within the next N days across all active courses. Defaults to 7 days.',
             inputSchema: {
@@ -429,9 +388,6 @@ class GoogleClassroomMCPServer {
           case 'list_announcements':
             return await this.listAnnouncements(request.params.arguments as { courseId: string; announcementStates?: string[] });
           
-          case 'create_coursework':
-            return await this.createCoursework(request.params.arguments as any);
-
           case 'get_upcoming_assignments':
             return await this.getUpcomingAssignments(request.params.arguments as { days?: number } || {});
 
@@ -560,43 +516,6 @@ class GoogleClassroomMCPServer {
     const response = await this.classroom.courses.announcements.list({
       courseId: args.courseId,
       announcementStates: args.announcementStates,
-    });
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(response.data, null, 2),
-        },
-      ],
-    };
-  }
-
-  private async createCoursework(args: any) {
-    const courseWork: any = {
-      title: args.title,
-      description: args.description,
-      workType: args.workType || 'ASSIGNMENT',
-      state: 'PUBLISHED',
-    };
-
-    if (args.maxPoints != null) {
-      courseWork.maxPoints = args.maxPoints;
-    }
-
-    if (args.dueDate) {
-      const [year, month, day] = args.dueDate.split('-').map(Number);
-      courseWork.dueDate = { year, month, day };
-      
-      if (args.dueTime) {
-        const [hours, minutes] = args.dueTime.split(':').map(Number);
-        courseWork.dueTime = { hours, minutes };
-      }
-    }
-
-    const response = await this.classroom.courses.courseWork.create({
-      courseId: args.courseId,
-      requestBody: courseWork,
     });
 
     return {
