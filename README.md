@@ -1,36 +1,25 @@
 # Google Classroom MCP Server
 
-An MCP (Model Context Protocol) server that connects Claude to Google Classroom, letting you query courses, assignments, grades, and more through natural language.
+An MCP (Model Context Protocol) server that connects Claude to your Google Classroom account, letting you query your courses, assignments, grades, and more through natural language.
 
 ## Available Tools
 
-### Student tools
-
 | Tool | Description |
 |---|---|
-| `list_courses` | List all your courses with optional filtering |
+| `list_courses` | List all your courses with optional filtering by state |
 | `get_course` | Get detailed info about a specific course |
 | `get_assignments` | Get all published assignments in a course |
+| `list_coursework` | List assignments in a course with optional state filtering |
 | `get_coursework` | Get details for a specific assignment |
 | `get_assignment_materials` | Get Drive files, links, videos, and forms attached to an assignment |
 | `get_upcoming_assignments` | Assignments due in the next N days (default: 7) across all active courses |
 | `get_missing_assignments` | Past-due assignments you haven't submitted |
 | `get_grades` | Your grades across all active courses |
 | `calculate_grade` | Your overall grade percentage for a course |
+| `list_submissions` | View your own submission details for a specific assignment |
 | `list_announcements` | View announcements for a course |
 
-### Teacher tools
-
-| Tool | Description |
-|---|---|
-| `list_courses` | List all courses (filter by teacherId to see only yours) |
-| `get_course` | Get detailed info about a specific course |
-| `list_coursework` | List assignments in a course (supports state filtering) |
-| `get_coursework` | Get details for a specific assignment |
-| `create_coursework` | Create a new assignment with title, description, due date, and points |
-| `list_students` | List students enrolled in a course |
-| `list_submissions` | View all student submissions for an assignment |
-| `list_announcements` | View announcements for a course |
+All access is **read-only**. The server cannot create, modify, or delete anything in your Google Classroom account.
 
 ---
 
@@ -54,13 +43,13 @@ npm run build
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com/)
 2. Create a new project (or select an existing one)
-3. In the left menu, go to **APIs & Services → Library**
+3. In the left menu, go to **APIs & Services > Library**
 4. Search for **Google Classroom API** and click **Enable**
 
 ### Step 3 — Create OAuth 2.0 credentials
 
-1. Go to **APIs & Services → Credentials**
-2. Click **Create Credentials → OAuth 2.0 Client ID**
+1. Go to **APIs & Services > Credentials**
+2. Click **Create Credentials > OAuth 2.0 Client ID**
 3. If prompted, configure the OAuth consent screen first:
    - Set User Type to **External**
    - Fill in an app name (anything works, e.g. "Classroom MCP")
@@ -121,18 +110,29 @@ To find your values, open the `.env` file created in Step 4 — it contains all 
 
 Once Claude Desktop is restarted, try asking Claude:
 
-**Students:**
 - "List all my Google Classroom courses"
 - "What assignments do I have coming up this week?"
 - "Do I have any missing assignments?"
-- "Show me my grades for my [course name] class"
-- "What's my overall grade percentage in [course name]?"
-- "What materials are attached to the [assignment name] assignment?"
+- "Show me my grades for my History class"
+- "What's my overall grade percentage in Biology?"
+- "What materials are attached to the Chapter 5 assignment?"
 
-**Teachers:**
-- "Show me the students in my [course name] course"
-- "List all submissions for the [assignment name] assignment"
-- "Create a new assignment called 'Chapter 5 Quiz' in my [course name] course due 2026-03-15 worth 100 points"
+---
+
+## Google API Scopes
+
+The server requests the following read-only scopes:
+
+| Scope | What it allows |
+|---|---|
+| `classroom.courses.readonly` | View your courses |
+| `classroom.course-work.readonly` | View assignments and coursework |
+| `classroom.student-submissions.me.readonly` | View your own submissions and grades |
+| `classroom.announcements.readonly` | View course announcements |
+| `classroom.courseworkmaterials.readonly` | View materials attached to coursework |
+| `classroom.topics.readonly` | View course topics |
+
+No write scopes are requested. The server cannot modify any data in your Google Classroom account.
 
 ---
 
@@ -172,29 +172,20 @@ classroom_mcp/
 - `list_courses(courseStates?, teacherId?, studentId?)` — list courses, optionally filtered by state (ACTIVE, ARCHIVED, etc.)
 - `get_course(courseId)` — get full details for one course
 
-### Assignments (Student)
+### Assignments
 - `get_assignments(courseId)` — list all published assignments in a course with title, due date, max points, and type
+- `list_coursework(courseId, courseWorkStates?)` — list assignments in a course, optionally filtered by state (PUBLISHED, DRAFT, DELETED)
 - `get_coursework(courseId, courseWorkId)` — get full details for a specific assignment
 - `get_assignment_materials(courseId, courseWorkId)` — get all attached materials (Drive files, links, YouTube videos, Google Forms)
 - `get_upcoming_assignments(days?)` — assignments due within the next `days` days across all active courses, sorted by due date. Defaults to 7 days
 - `get_missing_assignments()` — past-due assignments with no submission across all active courses
 
-### Assignments (Teacher)
-- `list_coursework(courseId, courseWorkStates?)` — list assignments in a course, optionally filtered by state (PUBLISHED, DRAFT, DELETED)
-- `create_coursework(courseId, title, description?, dueDate?, dueTime?, maxPoints?, workType?)` — create an assignment
-  - `dueDate` format: `"YYYY-MM-DD"` e.g. `"2026-03-15"`
-  - `dueTime` format: `"HH:MM"` (24-hour) e.g. `"23:59"`
-  - `maxPoints`: positive number e.g. `100`
-  - `workType`: `"ASSIGNMENT"` | `"SHORT_ANSWER_QUESTION"` | `"MULTIPLE_CHOICE_QUESTION"` (default: `"ASSIGNMENT"`)
-
 ### Grades & Submissions
 - `get_grades()` — your grade for every assignment across all active courses, including `assignedGrade`, `maxPoints`, `state`, and `dueDate`
-- `get_submission_feedback(courseId, courseWorkId)` — your grade, draft grade, late status, and feedback for a specific assignment
 - `calculate_grade(courseId)` — overall grade percentage for a course plus a per-assignment breakdown
-- `list_submissions(courseId, courseWorkId, userId?)` — list all raw submission objects for an assignment (teacher use)
+- `list_submissions(courseId, courseWorkId)` — your own submission details for a specific assignment
 
-### Students & Announcements
-- `list_students(courseId)` — list enrolled students
+### Announcements
 - `list_announcements(courseId, announcementStates?)` — list announcements
 
 ---
@@ -221,13 +212,11 @@ npm run clean
 npm install
 npm run build
 ```
+
 ---
 
 ## Security notes
 
-- The server only requests the minimum Classroom API scopes needed
+- All scopes are read-only — the server cannot modify your Classroom data
 - Access tokens are refreshed automatically using the stored refresh token
-
----
-
-
+- The refresh token is stored locally on your machine, never on a remote server

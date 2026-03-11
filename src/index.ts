@@ -20,11 +20,11 @@ const DEFAULT_CLIENT_SECRET = '__GOOGLE_CLIENT_SECRET__';
 // Google Classroom API scopes
 const SCOPES = [
   'https://www.googleapis.com/auth/classroom.courses.readonly',
-  'https://www.googleapis.com/auth/classroom.rosters.readonly',
-  'https://www.googleapis.com/auth/classroom.coursework.students.readonly',
-  'https://www.googleapis.com/auth/classroom.coursework.me',
+  'https://www.googleapis.com/auth/classroom.course-work.readonly',
+  'https://www.googleapis.com/auth/classroom.student-submissions.me.readonly',
   'https://www.googleapis.com/auth/classroom.announcements.readonly',
-  'https://www.googleapis.com/auth/classroom.profile.emails',
+  'https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly',
+  'https://www.googleapis.com/auth/classroom.topics.readonly',
 ];
 
 class GoogleClassroomMCPServer {
@@ -220,22 +220,8 @@ class GoogleClassroomMCPServer {
             },
           },
           {
-            name: 'list_students',
-            description: 'List students enrolled in a course',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                courseId: {
-                  type: 'string',
-                  description: 'The ID of the course',
-                },
-              },
-              required: ['courseId'],
-            },
-          },
-          {
             name: 'list_submissions',
-            description: 'List student submissions for an assignment',
+            description: 'View your own submissions for an assignment, including state, grade, and attachments',
             inputSchema: {
               type: 'object',
               properties: {
@@ -246,10 +232,6 @@ class GoogleClassroomMCPServer {
                 courseWorkId: {
                   type: 'string',
                   description: 'The ID of the coursework/assignment',
-                },
-                userId: {
-                  type: 'string',
-                  description: 'Filter by specific student ID (optional)',
                 },
               },
               required: ['courseId', 'courseWorkId'],
@@ -379,11 +361,8 @@ class GoogleClassroomMCPServer {
           case 'get_coursework':
             return await this.getCoursework(request.params.arguments as { courseId: string; courseWorkId: string });
           
-          case 'list_students':
-            return await this.listStudents(request.params.arguments as { courseId: string });
-          
           case 'list_submissions':
-            return await this.listSubmissions(request.params.arguments as { courseId: string; courseWorkId: string; userId?: string });
+            return await this.listSubmissions(request.params.arguments as { courseId: string; courseWorkId: string });
           
           case 'list_announcements':
             return await this.listAnnouncements(request.params.arguments as { courseId: string; announcementStates?: string[] });
@@ -480,26 +459,11 @@ class GoogleClassroomMCPServer {
     };
   }
 
-  private async listStudents(args: { courseId: string }) {
-    const response = await this.classroom.courses.students.list({
-      courseId: args.courseId,
-    });
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(response.data, null, 2),
-        },
-      ],
-    };
-  }
-
-  private async listSubmissions(args: { courseId: string; courseWorkId: string; userId?: string }) {
+  private async listSubmissions(args: { courseId: string; courseWorkId: string }) {
     const response = await this.classroom.courses.courseWork.studentSubmissions.list({
       courseId: args.courseId,
       courseWorkId: args.courseWorkId,
-      userId: args.userId,
+      userId: 'me',
     });
 
     return {
